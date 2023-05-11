@@ -223,6 +223,25 @@ qreal dist(std::vector<std::vector<qreal>> &mat, std::vector<int> trace) {
     return res;
 }
 
+template <typename T>
+T get(std::list<T> _list, int _i){
+    auto it = _list.begin();
+    for(int i=0; i<_i; i++){
+        ++it;
+    }
+    return *it;
+}
+
+qreal dist(std::vector<std::vector<qreal>> &mat, std::list<int> trace) {
+    qreal res = 0;
+    for(int i = 0; i < trace.size() - 1; i++){
+        int row = get(trace, i);
+        int colom = get(trace, i + 1);
+        res += mat[row][colom];
+    }
+    return res;
+}
+
 QString pathToStrint(std::vector<int> path, std::vector<QString> name) {
     QString strPath = "";
     for(int i = 0; i < path.size(); ++i) {
@@ -249,8 +268,9 @@ QString pathToStrint(std::vector<int> path) {
     return strPath;
 }
 
-
+int n = 0;
 std::vector<int> greedy_algorithm(std::vector<std::vector<qreal>> &mat, std::vector<int> backtrace = {0}) {
+    n++;
     if (backtrace.size() == mat.size()) {
         backtrace.push_back(backtrace.front());
         qDebug() << pathToStrint(backtrace) + " Дистанция " + QString::number(dist(mat, backtrace));
@@ -272,9 +292,9 @@ std::vector<int> greedy_algorithm(std::vector<std::vector<qreal>> &mat, std::vec
 }
 
 std::vector<int> brute_force(std::vector<std::vector<qreal>> &mat, std::vector<int> backtrace = {0}) {
+    n++;
     if (backtrace.size() == mat.size()) {
         backtrace.push_back(backtrace.front());
-        qDebug() << pathToStrint(backtrace) + " Дистанция " + QString::number(dist(mat, backtrace));
         return backtrace;
     }
 
@@ -291,6 +311,40 @@ std::vector<int> brute_force(std::vector<std::vector<qreal>> &mat, std::vector<i
             }
         }
     }
+    return bast;
+}
+
+std::list<int> dynamic_programming(std::vector<std::vector<qreal>> &mat, int begin ,int start , std::list<int> backtrace, std::map<std::pair<int, std::list<int>> , std::list<int>> &history, bool on_history = true) {
+    n++;
+
+    std::list<int> bast;
+    if ((history.find({start, backtrace}) != history.end()) && on_history) {
+        bast = history[{start, backtrace}];
+    } else {
+        for(auto item: backtrace) {
+            auto copy = backtrace;
+            std::remove(copy.begin(), copy.end(), item);
+            copy.pop_back();
+            std::list<int> res;
+            if (copy.size() != 1) {
+                res = dynamic_programming(mat, begin, item, copy, history, on_history);
+            } else {
+                copy.push_front(item);
+                copy.push_back(begin);
+                res = copy;
+            }
+
+            res.push_front(start);
+            if(bast.empty()) {
+                bast = res;
+            } else if(dist(mat, bast) > dist(mat, res)) {
+                bast = res;
+            }
+        }
+        if (on_history)
+            history.insert({{start, backtrace}, bast});
+    }
+
     return bast;
 }
 
@@ -319,7 +373,15 @@ void FormInteractiveMap::on_pushButton_clicked()
     auto mat = getMat();
     auto name = getNamePoint();
 
+    if(mat.size() == 0) {
+        this->ui->pushButton->setEnabled(true);
+        this->ui->pushButton_2->setEnabled(false);
+        qDebug() << "Нет точек";
+        return;
+    }
+
     qDebug() << "Точек " +  QString::number(mat.size());
+    n = 0;
     switch (this->ui->comboBox->currentIndex()) {
         case 0: {
             qDebug() << "Полный перебор";
@@ -346,12 +408,24 @@ void FormInteractiveMap::on_pushButton_clicked()
             break;
         }
         case 2:{
-            //Метод динамического программирования
-            auto start = std::chrono::high_resolution_clock::now();
+            qDebug() << "Метод динамического программирования";
+            int pStart = 0;
+            std::list<int> point;
+            std::map<std::pair<int, std::list<int>> , std::list<int>> history;
+            for(int i = 1; i < mat.size(); ++i) point.push_back(i);
 
+            auto start = std::chrono::high_resolution_clock::now();
+            auto res = dynamic_programming(mat, pStart, pStart, point, history);
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-            this->ui->lineEdit_3->setText(QString::number(duration.count()));
+
+            std::vector<int> path(res.begin(), res.end());
+            this->ui->lineEdit->setText(pathToStrint(path, name));
+            this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
+            this->ui->lineEdit_3->setText(QString::number(duration.count()) + "us");
+            drowLine(name, path);
+            qDebug() << pathToStrint(path);
+
             break;
         }
         case 3: {
@@ -366,6 +440,7 @@ void FormInteractiveMap::on_pushButton_clicked()
         default:
             return;
     }
+    this->ui->lineEdit_5->setText(QString::number(n));
 
     this->ui->pushButton->setEnabled(true);
     this->ui->pushButton_2->setEnabled(false);
