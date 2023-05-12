@@ -199,7 +199,10 @@ std::vector<std::vector<qreal>> FormInteractiveMap::getMat() {
     for(auto it1: item) {
         std::vector<qreal> line;
         for(auto it2: item) {
-            line.push_back(euclidean_distance(it1->pos(),it2->pos()));
+            if (it2 == it1)
+                line.push_back(-1);
+            else
+                line.push_back(euclidean_distance(it1->pos(),it2->pos()));
         }
         mat.push_back(line);
     }
@@ -348,6 +351,121 @@ std::list<int> dynamic_programming(std::vector<std::vector<qreal>> &mat, int beg
     return bast;
 }
 
+std::vector<int> branches_and_boundaries(std::vector<std::vector<qreal>> &mat) {
+    std::vector<std::tuple<std::vector<std::vector<qreal>>, std::vector<int> ,qreal>> history = {};
+    while (true) {
+        n++;
+        qreal pow;
+        std::vector<std::vector<qreal>> copy_mat;
+        std::vector<int> branches = {};
+
+        if (history.size() == 0) {
+            copy_mat = mat;
+            pow = 0;
+        } else {
+            int min_intex = -1;
+            for(int i = 0; i < history.size(); i++) {
+                int H = std::get<2>(history[i]);
+                if(min_intex < 0) {
+                    min_intex = i;
+                } else {
+                    if(std::get<2>(history[min_intex]) > std::get<2>(history[i]))
+                        min_intex = i;
+                }
+            }
+            copy_mat = std::get<0>(history[min_intex]);
+            branches = std::get<1>(history[min_intex]);
+            pow = std::get<2>(history[min_intex]);
+            if (branches.size() == copy_mat.size()) {
+                return branches;
+            }
+            history.erase(std::next(history.begin(), min_intex));
+        }
+
+        for (int i = 0; i < copy_mat.size(); i++) {
+            qreal min_row = -1;
+            for(int j = 0; j < copy_mat.size(); j++) {
+                if (copy_mat[i][j] >= 0)
+                    if(min_row == -1)
+                        min_row = copy_mat[i][j];
+                    else
+                        min_row = (min_row > copy_mat[i][j])?copy_mat[i][j]:min_row;
+            }
+            if (min_row != -1) {
+                pow += min_row;
+                for(int k = 0; k < copy_mat.size(); k++) {
+                    copy_mat[i][k] -= min_row;
+                }
+            }
+        }
+
+        for (int i = 0; i < copy_mat.size(); i++) {
+            qreal min_colom = -1;
+            for(int j = 0; j < copy_mat.size(); j++) {
+                if (copy_mat[j][i] >= 0)
+                    if(min_colom == -1)
+                        min_colom = copy_mat[j][i];
+                    else
+                        min_colom = (min_colom > copy_mat[j][i])?copy_mat[j][i]:min_colom;
+            }
+            if (min_colom != -1) {
+                pow += min_colom;
+                for(int k = 0; k < copy_mat.size(); k++) {
+                    copy_mat[k][i] -= min_colom;
+                }
+            }
+
+        }
+
+        int index_row = -1;
+        int index_col = -1;
+        qreal max_fine = -1;
+
+        for(int i = 0; i < copy_mat.size(); i++) {
+            for(int j = 0; j < copy_mat.size(); j++) {
+                if (copy_mat[i][j] == 0) {
+                    qreal min_row = -1;
+                    qreal min_col = -1;
+                    for(int k = 0; k < copy_mat.size(); k++) {
+                        if (copy_mat[i][k] >= 0 && k != j) {
+                            min_row = (min_row < 0)?copy_mat[i][k]:(min_row > copy_mat[i][k])?copy_mat[i][k]:min_row;
+                        }
+
+                        if (copy_mat[k][j] >= 0 && k != i) {
+                            min_col = (min_col < 0)?copy_mat[k][j]:(min_col > copy_mat[k][j])?copy_mat[k][j]:min_col;
+                        }
+                    }
+                    if (max_fine < 0) {
+                        max_fine = min_row + min_col;
+                        index_row = j;
+                        index_col = i;
+                    } else {
+                        auto new_fine = min_row + min_col;
+                        if (max_fine < new_fine) {
+                            max_fine = new_fine;
+                            index_row = j;
+                            index_col = i;
+                        }
+                    }
+                }
+            }
+        }
+
+        copy_mat[index_col][index_row] = -1;
+        history.push_back({copy_mat, branches, pow + max_fine});
+
+        branches.push_back(index_col);
+        for (int i = 0; i < copy_mat.size(); i++) {
+            copy_mat[i][index_row] = -1;
+            copy_mat[index_col][i] = -1;
+        }
+        copy_mat[index_row][index_col] = -1;
+
+        history.push_back({copy_mat, branches, pow});
+    }
+    return {};
+}
+
 void FormInteractiveMap::drowLine(std::vector<QString> name, std::vector<int> path) {
     for (auto it: line_path) {
         delete it;
@@ -392,7 +510,7 @@ void FormInteractiveMap::on_pushButton_clicked()
             drowLine(name, path);
             this->ui->lineEdit->setText(pathToStrint(path, name));
             this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
-            this->ui->lineEdit_3->setText(QString::number(duration.count()) + "us");
+            this->ui->lineEdit_3->setText(QString::number(duration.count() / 1000.0) + "ms");
             break;
         }
         case 1: {
@@ -404,7 +522,7 @@ void FormInteractiveMap::on_pushButton_clicked()
             drowLine(name, path);
             this->ui->lineEdit->setText(pathToStrint(path, name));
             this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
-            this->ui->lineEdit_3->setText(QString::number(duration.count()) + "us");
+            this->ui->lineEdit_3->setText(QString::number(duration.count() / 1000.0) + "ms");
             break;
         }
         case 2:{
@@ -422,7 +540,7 @@ void FormInteractiveMap::on_pushButton_clicked()
             std::vector<int> path(res.begin(), res.end());
             this->ui->lineEdit->setText(pathToStrint(path, name));
             this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
-            this->ui->lineEdit_3->setText(QString::number(duration.count()) + "us");
+            this->ui->lineEdit_3->setText(QString::number(duration.count() / 1000.0) + "ms");
             drowLine(name, path);
             qDebug() << pathToStrint(path);
 
@@ -431,10 +549,14 @@ void FormInteractiveMap::on_pushButton_clicked()
         case 3: {
             //Ветвей и границ
             auto start = std::chrono::high_resolution_clock::now();
-
+            std::vector<std::vector<qreal>> mat_test = {{-1,20,18,12,8},{5,-1,14,7,11},{12,18,-1,6,11},{11,17,11,-1,12},{5,5,5,5,-1}};
+            auto path = branches_and_boundaries(mat_test);
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-            this->ui->lineEdit_3->setText(QString::number(duration.count()));
+
+            this->ui->lineEdit->setText(pathToStrint(path, name));
+            this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
+            this->ui->lineEdit_3->setText(QString::number(duration.count() / 1000.0) + "ms");
             break;
         }
         default:
