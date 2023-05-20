@@ -416,7 +416,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
             copy_mat = std::get<0>(history[min_intex]);
             branches = std::get<1>(history[min_intex]);
             pow = std::get<2>(history[min_intex]);
-
+            qDebug() << pow;
             if (branches.size() == copy_mat.size() - 1) {
                 for(int i = 0; i < copy_mat.size(); i++)
                     for(int j = 0; j < copy_mat.size(); j++)
@@ -524,6 +524,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
             copy_mat[index_col][i] = -1;
         }
         copy_mat[index_row][index_col] = -1;
+        copy_mat[index_col][index_row] = -1;
 
         for (int i = 0; i < copy_mat.size(); i++) {
             qreal min_row = -1;
@@ -665,6 +666,10 @@ void FormInteractiveMap::on_pushButton_clicked()
             //Ветвей и границ
             auto start = std::chrono::high_resolution_clock::now();
             auto path_pair = branches_and_boundaries(mat);
+            qDebug() << path_pair.size();
+            for(auto p: path_pair) {
+                qDebug() << QString::number(p.first) + "->" + QString::number(p.second);
+            }
             auto path = convert_pair(path_pair);
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
