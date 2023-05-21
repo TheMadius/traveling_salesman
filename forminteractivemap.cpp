@@ -358,6 +358,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
     qreal pow_main = 0;
 
     n++;
+    auto start = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < copy_main.size(); i++) {
         qreal min_row = -1;
@@ -416,7 +417,12 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
             copy_mat = std::get<0>(history[min_intex]);
             branches = std::get<1>(history[min_intex]);
             pow = std::get<2>(history[min_intex]);
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
             qDebug() << pow;
+            qDebug() << duration.count();
+
             if (branches.size() == copy_mat.size() - 1) {
                 for(int i = 0; i < copy_mat.size(); i++)
                     for(int j = 0; j < copy_mat.size(); j++)
@@ -559,8 +565,6 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                 }
             }
         }
-
-        history.push_back({copy_mat, branches, pow});
     }
     return {};
 }
