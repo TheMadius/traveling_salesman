@@ -358,6 +358,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
     qreal pow_main = 0;
 
     n++;
+    int sec = 1;
     auto start = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < copy_main.size(); i++) {
@@ -418,10 +419,14 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
             branches = std::get<1>(history[min_intex]);
             pow = std::get<2>(history[min_intex]);
             auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
 
-            qDebug() << pow;
-            qDebug() << duration.count();
+            auto time = duration.count();
+            if (time / 5 == sec) {
+                qDebug() << pow;
+                qDebug() << time;
+                sec++;
+            }
 
             if (branches.size() == copy_mat.size() - 1) {
                 for(int i = 0; i < copy_mat.size(); i++)
@@ -565,6 +570,8 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                 }
             }
         }
+
+        history.push_back({copy_mat, branches, pow});
     }
     return {};
 }
@@ -605,9 +612,6 @@ std::vector<int> convert_pair(std::vector<std::pair<int, int>> vect_pair) {
 
 void FormInteractiveMap::on_pushButton_clicked()
 {
-    this->ui->pushButton->setEnabled(false);
-    this->ui->pushButton_2->setEnabled(true);
-
     auto mat = getMat();
     auto name = getNamePoint();
 
@@ -686,9 +690,10 @@ void FormInteractiveMap::on_pushButton_clicked()
             break;
         }
         default:
-            return;
+            break;
     }
-    this->ui->lineEdit_5->setText(QString::number(n));
+
+        this->ui->lineEdit_5->setText(QString::number(n));
 
     this->ui->pushButton->setEnabled(true);
     this->ui->pushButton_2->setEnabled(false);

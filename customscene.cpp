@@ -776,19 +776,8 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
     emit signalTargetCoordinate(event->scenePos());
     if (manu) {
         if (event->button() == Qt::RightButton) {
-            QMenu mainMenu(tr("Меню"));
-            QMenu contextMenu(tr("Добавить"));
-            QAction action4("Точка");
-
-            connect( &action4, &QAction::triggered, [&](){
-                std::vector<std::string> list = {};
-                addItemInScene(event, 3, list);
-            });
-
-            contextMenu.addAction(&action4);
-
-            mainMenu.addMenu(&contextMenu);
-            mainMenu.exec(event->screenPos());
+            std::vector<std::string> list = {};
+            addItemInScene(event, 3, list);
         }
     }
 }
