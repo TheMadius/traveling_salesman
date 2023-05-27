@@ -19,8 +19,28 @@
 #include "addnewelementinscene.h"
 #include "settingsperimetr.h"
 #include <utility>
+#include <random>
 //
 //
+
+std::string random_string(std::string::size_type length)
+{
+  static auto& chrs = "0123456789"
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  thread_local static std::mt19937 rg{std::random_device{}()};
+  thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+
+  std::string s;
+
+  s.reserve(length);
+
+  while (length--)
+    s += chrs[pick(rg)];
+
+  return s;
+}
 
 std::vector<int> convert_pair(std::vector<std::pair<int, int>> vect_pair) {
 
@@ -394,9 +414,60 @@ std::list<int> dynamic_programming(std::vector<std::vector<qreal>> &mat, int beg
     return bast;
 }
 
+ std::vector<std::vector<qreal>> getMatFromStr(QString s_mat) {
+    std::vector<std::vector<qreal>> mat;
+    auto lines = s_mat.split('\n');
+    for (QString line: lines) {
+        std::vector<qreal> row;
+        auto elements = line.split(' ');
+        for (QString el: elements) {
+            qreal it = el.toDouble();
+            row.push_back(it);
+        }
+        mat.push_back(row);
+    }
+    return mat;
+}
+
+
+QString getStrFromMat(std::vector<std::vector<qreal>> &mat) {
+    QString res;
+    int size = mat.size();
+    for(int i = 0; i < size; i++) {
+        for(int j = 0; j < size; j++) {
+            res += QString::number(mat[i][j]);
+            if (j != (size - 1))
+                res += " ";
+        }
+        if (i != (size - 1))
+            res += "\n";
+    }
+    return res;
+}
+
+std::vector<std::vector<qreal>> loadMat(QString filename) {
+    QFile file(filename);
+    file.open(QIODevice::ReadOnly);
+    QString data = file.readAll();
+    file.close();
+    return getMatFromStr(data);
+}
+
+QString saveMat(std::vector<std::vector<qreal>> &mat, QString path = "mat") {
+
+    QString filename = path + ("/" + random_string(15)).c_str();
+    QFile file(filename);
+    file.open(QIODevice::WriteOnly);
+    QString data = getStrFromMat(mat);
+    file.write(data.toUtf8());
+    file.close();
+    return filename;
+}
+
+
 std::atomic<bool> run = true;
 std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector<qreal>> &mat) {
-    std::vector<std::tuple<std::vector<std::vector<qreal>>, std::vector<std::pair<int, int>> ,qreal>> history = {};
+    std::vector<std::tuple<QString, std::vector<std::pair<int, int>> ,qreal>> history = {};
     std::vector<std::pair<int, int>> res;
     qreal pow_min = 0;
     bool start_el = true;
@@ -461,11 +532,16 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
         } else {
             int min_intex = -1;
             int s;
+
             if (rash) {
                 s = history.size() - 2;
             } else {
                 s = 0;
                 rash = true;
+            }
+
+            if (s < 0) {
+                s = 0;
             }
 
             for(; s < history.size(); s++) {
@@ -477,7 +553,8 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                         min_intex = s;
                 }
             }
-            copy_mat = std::get<0>(history[min_intex]);
+            QString name = std::get<0>(history[min_intex]);
+            copy_mat = loadMat(std::get<0>(history[min_intex]));
             branches = std::get<1>(history[min_intex]);
             pow = std::get<2>(history[min_intex]);
             auto stop = std::chrono::high_resolution_clock::now();
@@ -511,13 +588,19 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                                     pow_min = pow;
                                 }
                             }
+
+                            if (!rash)
+                                break;
+
                             rash = false;
                             goto end_for;
                         }
             end_for:
+                QFile::remove(name);
                 history.erase(std::next(history.begin(), min_intex));
                 continue;
             } else {
+                QFile::remove(name);
                 history.erase(std::next(history.begin(), min_intex));
             }
 
@@ -607,7 +690,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
         }
 
         if (not_inf) {
-            history.push_back({copy_mat, branches, pow + max_fine});
+            history.push_back({saveMat(copy_mat), branches, pow + max_fine});
         }
 
         //in point with max file
@@ -653,7 +736,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
             }
         }
 
-        history.push_back({copy_mat, branches, pow});
+        history.push_back({saveMat(copy_mat), branches, pow});
     }
     return res;
 }
@@ -676,6 +759,7 @@ void FormInteractiveMap::drowLine(std::vector<QString> name, std::vector<int> pa
 }
 
 #include <thread>
+#include <QDir>
 
 void FormInteractiveMap::on_pushButton_clicked()
 {
@@ -744,12 +828,17 @@ void FormInteractiveMap::on_pushButton_clicked()
             //Ветвей и границ
             run = true;
             std::thread t([&](){
+                    QDir().mkdir("mat");
                     auto mat_thread = getMat();
                     auto start_t = std::chrono::high_resolution_clock::now();
                     auto path_pair = branches_and_boundaries(mat_thread);
                     auto stop_t = std::chrono::high_resolution_clock::now();
                     auto duration_t = std::chrono::duration_cast<std::chrono::microseconds>(stop_t - start_t);
-                    emit end(path_pair, duration_t.count());
+                    QDir("mat").removeRecursively();
+
+                    if (path_pair.size() > 0)
+                        emit end(path_pair, duration_t.count());
+
                     return;
             });
             t.detach();
