@@ -668,10 +668,10 @@ void FormInteractiveMap::drowLine(std::vector<QString> name, std::vector<int> pa
     pen.setColor(Qt::green);
     auto item = this->scene->getList();
     for(int i = 0; i < path.size() - 1; i++) {
-        this->line_path.push_back(this->scene->addLine(item[name[path[i]]]->pos().x(),
-                                                       item[name[path[i]]]->pos().y(),
-                                                       item[name[path[i + 1]]]->pos().x(),
-                                                       item[name[path[i + 1]]]->pos().y(), pen));
+        this->line_path.push_back(this->scene->addLine(item[name[path[i]]]->pos().x() + 16,
+                                                       item[name[path[i]]]->pos().y() + 16,
+                                                       item[name[path[i + 1]]]->pos().x() + 16,
+                                                       item[name[path[i + 1]]]->pos().y() + 16, pen));
     }
 }
 
