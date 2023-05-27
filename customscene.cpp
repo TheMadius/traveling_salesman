@@ -722,12 +722,14 @@ void CustomScene::addItemInScene(QGraphicsSceneMouseEvent *event,
     item->setMode(this->mode);
     this->addItem(item);
 
+    /*
+
     for(auto it_1: items) {
         auto line = this->addLine(it_1->pos().x(),it_1->pos().y(),item->pos().x(),item->pos().y());
         it_1->addLine(line, 1);
         item->addLine(line, 2);
     }
-
+*/
     items.insert(QString::number(i), item);
     emit this->addNewItem(item);
 }

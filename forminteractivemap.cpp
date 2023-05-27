@@ -15,12 +15,86 @@
 #include "accesspointsettings.h"
 
 #include <opencv2/imgproc.hpp>
-
+#include <vector>
 #include "addnewelementinscene.h"
 #include "settingsperimetr.h"
 #include <utility>
 //
 //
+
+std::vector<int> convert_pair(std::vector<std::pair<int, int>> vect_pair) {
+
+    std::vector<int> res;
+    if (vect_pair.size() == 0)
+        return res;
+    res.push_back(vect_pair.back().first);
+    res.push_back(vect_pair.back().second);
+    vect_pair.pop_back();
+
+    for(int i = 0; i < vect_pair.size(); i++ ) {
+        for(int i = 0; i < vect_pair.size(); i++ ) {
+            if ( res.back() == vect_pair[i].first ) {
+                res.push_back(vect_pair[i].second);
+                break;
+            }
+        }
+    }
+    return res;
+}
+
+
+qreal dist(std::vector<std::vector<qreal>> &mat, std::vector<int> trace) {
+    qreal res = 0;
+    for(int i = 0; i < trace.size() - 1; i++){
+        res += mat[trace[i]][trace[i + 1]];
+    }
+    return res;
+}
+
+template <typename T>
+T get(std::list<T> _list, int _i){
+    auto it = _list.begin();
+    for(int i=0; i<_i; i++){
+        ++it;
+    }
+    return *it;
+}
+
+qreal dist(std::vector<std::vector<qreal>> &mat, std::list<int> trace) {
+    qreal res = 0;
+    for(int i = 0; i < trace.size() - 1; i++){
+        int row = get(trace, i);
+        int colom = get(trace, i + 1);
+        res += mat[row][colom];
+    }
+    return res;
+}
+
+QString pathToStrint(std::vector<int> path, std::vector<QString> name) {
+    QString strPath = "";
+    for(int i = 0; i < path.size(); ++i) {
+        if (i + 1 == path.size()) {
+            strPath += name[path[i]];
+        } else {
+            strPath += name[path[i]] + "->";
+        }
+
+    }
+    return strPath;
+}
+
+QString pathToStrint(std::vector<int> path) {
+    QString strPath = "";
+    for(int i = 0; i < path.size(); ++i) {
+        if (i + 1 == path.size()) {
+            strPath += QString::number(path[i] + 1);
+        } else {
+            strPath += QString::number(path[i] + 1) + "->";
+        }
+
+    }
+    return strPath;
+}
 
 QImage cvMatToQImage(const cv::Mat &frame ) {
     return QImage( (const unsigned char*)(frame.data), frame.cols, frame.rows, static_cast<int>(frame.step), QImage::Format_RGB888).rgbSwapped();
@@ -30,6 +104,7 @@ FormInteractiveMap::FormInteractiveMap(QWidget *parent) :
     QWidget(nullptr),
     ui(new Ui::FormInteractiveMap)
 {
+    qRegisterMetaType<std::vector<std::pair<int, int>>>();
     ui->setupUi(this);
     this->parentM = parent;
 
@@ -46,6 +121,8 @@ FormInteractiveMap::FormInteractiveMap(QWidget *parent) :
         list_tap.remove(this->ui->tabWidget->tabText(index));
         this->ui->tabWidget->removeTab(index);
     });
+
+    connect(this, &FormInteractiveMap::end, this, &FormInteractiveMap::endSlot);
 
     this->ui->tableWidget->setFixedWidth(400);
 
@@ -78,6 +155,25 @@ FormInteractiveMap::FormInteractiveMap(QWidget *parent) :
     view->setBackgroundBrush(Qt::white);
     view->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
     view->setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+}
+
+void FormInteractiveMap::endSlot(std::vector<std::pair<int, int>> path_pair, double time){
+        auto mat = getMat();
+        auto name = getNamePoint();
+        qDebug() << path_pair.size();
+        for(auto p: path_pair) {
+            qDebug() << QString::number(p.first) + "->" + QString::number(p.second);
+        }
+        auto path = convert_pair(path_pair);
+        auto stop = std::chrono::high_resolution_clock::now();
+
+        this->ui->lineEdit->setText(pathToStrint(path));
+        this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
+        this->ui->lineEdit_3->setText(QString::number(time / 1000.0) + "ms");
+        drowLine(name, path);
+        qDebug() << pathToStrint(path);
+        this->ui->pushButton->setEnabled(true);
+        this->ui->pushButton_2->setEnabled(false);
 }
 
 void FormInteractiveMap::connsetSocket(QString ip_server)
@@ -218,59 +314,6 @@ std::vector<QString> FormInteractiveMap::getNamePoint() {
     return mat;
 }
 
-qreal dist(std::vector<std::vector<qreal>> &mat, std::vector<int> trace) {
-    qreal res = 0;
-    for(int i = 0; i < trace.size() - 1; i++){
-        res += mat[trace[i]][trace[i + 1]];
-    }
-    return res;
-}
-
-template <typename T>
-T get(std::list<T> _list, int _i){
-    auto it = _list.begin();
-    for(int i=0; i<_i; i++){
-        ++it;
-    }
-    return *it;
-}
-
-qreal dist(std::vector<std::vector<qreal>> &mat, std::list<int> trace) {
-    qreal res = 0;
-    for(int i = 0; i < trace.size() - 1; i++){
-        int row = get(trace, i);
-        int colom = get(trace, i + 1);
-        res += mat[row][colom];
-    }
-    return res;
-}
-
-QString pathToStrint(std::vector<int> path, std::vector<QString> name) {
-    QString strPath = "";
-    for(int i = 0; i < path.size(); ++i) {
-        if (i + 1 == path.size()) {
-            strPath += name[path[i]];
-        } else {
-            strPath += name[path[i]] + "->";
-        }
-
-    }
-    return strPath;
-}
-
-QString pathToStrint(std::vector<int> path) {
-    QString strPath = "";
-    for(int i = 0; i < path.size(); ++i) {
-        if (i + 1 == path.size()) {
-            strPath += QString::number(path[i] + 1);
-        } else {
-            strPath += QString::number(path[i] + 1) + "->";
-        }
-
-    }
-    return strPath;
-}
-
 int n = 0;
 std::vector<int> greedy_algorithm(std::vector<std::vector<qreal>> &mat, std::vector<int> backtrace = {0}) {
     n++;
@@ -351,10 +394,15 @@ std::list<int> dynamic_programming(std::vector<std::vector<qreal>> &mat, int beg
     return bast;
 }
 
+std::atomic<bool> run = true;
 std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector<qreal>> &mat) {
     std::vector<std::tuple<std::vector<std::vector<qreal>>, std::vector<std::pair<int, int>> ,qreal>> history = {};
-
+    std::vector<std::pair<int, int>> res;
+    qreal pow_min = 0;
+    bool start_el = true;
+    bool rash = true;
     auto copy_main = mat;
+
     qreal pow_main = 0;
 
     n++;
@@ -395,24 +443,38 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
         }
     }
 
-    while (true) {
+    while (run) {
         n++;
         qreal pow;
         std::vector<std::vector<qreal>> copy_mat;
         std::vector<std::pair<int, int>> branches = {};
 
         if (history.size() == 0) {
-            copy_mat = copy_main;
-            pow = pow_main;
+            if (start_el) {
+                copy_mat = copy_main;
+                pow = pow_main;
+                start_el = false;
+            } else {
+                qDebug() << res.size();
+                break;
+            }
         } else {
             int min_intex = -1;
-            for(int i = 0; i < history.size(); i++) {
-                int H = std::get<2>(history[i]);
+            int s;
+            if (rash) {
+                s = history.size() - 2;
+            } else {
+                s = 0;
+                rash = true;
+            }
+
+            for(; s < history.size(); s++) {
+                int H = std::get<2>(history[s]);
                 if(min_intex < 0) {
-                    min_intex = i;
+                    min_intex = s;
                 } else {
-                    if(std::get<2>(history[min_intex]) > std::get<2>(history[i]))
-                        min_intex = i;
+                    if(std::get<2>(history[min_intex]) > std::get<2>(history[s]))
+                        min_intex = s;
                 }
             }
             copy_mat = std::get<0>(history[min_intex]);
@@ -423,7 +485,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
 
             auto time = duration.count();
             if (time / 5 == sec) {
-                qDebug() << pow;
+                qDebug() << pow_min;
                 qDebug() << time;
                 sec++;
             }
@@ -433,12 +495,32 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                     for(int j = 0; j < copy_mat.size(); j++)
                         if (copy_mat[i][j] >= 0) {
                             branches.push_back({i, j});
-                            return branches;
-                        }
+                            auto tetet = convert_pair(branches);
 
-                return branches;
+                            if (tetet.size() - 1 != copy_mat.size()) {
+                                rash = false;
+                                goto end_for;
+                            }
+
+                            if (res.empty()) {
+                                res = branches;
+                                pow_min = pow;
+                            } else {
+                                if (pow_min > pow) {
+                                    res = branches;
+                                    pow_min = pow;
+                                }
+                            }
+                            rash = false;
+                            goto end_for;
+                        }
+            end_for:
+                history.erase(std::next(history.begin(), min_intex));
+                continue;
+            } else {
+                history.erase(std::next(history.begin(), min_intex));
             }
-            history.erase(std::next(history.begin(), min_intex));
+
         }
 
         int index_row = -1;
@@ -573,7 +655,7 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
 
         history.push_back({copy_mat, branches, pow});
     }
-    return {};
+    return res;
 }
 
 void FormInteractiveMap::drowLine(std::vector<QString> name, std::vector<int> path) {
@@ -593,25 +675,13 @@ void FormInteractiveMap::drowLine(std::vector<QString> name, std::vector<int> pa
     }
 }
 
-std::vector<int> convert_pair(std::vector<std::pair<int, int>> vect_pair) {
-    std::vector<int> res;
-    res.push_back(vect_pair.back().first);
-    res.push_back(vect_pair.back().second);
-    vect_pair.pop_back();
-
-    for(int i = 0; i < vect_pair.size(); i++ ) {
-        for(int i = 0; i < vect_pair.size(); i++ ) {
-            if ( res.back() == vect_pair[i].first ) {
-                res.push_back(vect_pair[i].second);
-                break;
-            }
-        }
-    }
-    return res;
-}
+#include <thread>
 
 void FormInteractiveMap::on_pushButton_clicked()
 {
+    this->ui->pushButton->setEnabled(false);
+    this->ui->pushButton_2->setEnabled(true);
+
     auto mat = getMat();
     auto name = getNamePoint();
 
@@ -672,22 +742,18 @@ void FormInteractiveMap::on_pushButton_clicked()
         }
         case 3: {
             //Ветвей и границ
-            auto start = std::chrono::high_resolution_clock::now();
-            auto path_pair = branches_and_boundaries(mat);
-            qDebug() << path_pair.size();
-            for(auto p: path_pair) {
-                qDebug() << QString::number(p.first) + "->" + QString::number(p.second);
-            }
-            auto path = convert_pair(path_pair);
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
-            this->ui->lineEdit->setText(pathToStrint(path));
-            this->ui->lineEdit_2->setText(QString::number(dist(mat, path)));
-            this->ui->lineEdit_3->setText(QString::number(duration.count() / 1000.0) + "ms");
-            drowLine(name, path);
-            qDebug() << pathToStrint(path);
-            break;
+            run = true;
+            std::thread t([&](){
+                    auto mat_thread = getMat();
+                    auto start_t = std::chrono::high_resolution_clock::now();
+                    auto path_pair = branches_and_boundaries(mat_thread);
+                    auto stop_t = std::chrono::high_resolution_clock::now();
+                    auto duration_t = std::chrono::duration_cast<std::chrono::microseconds>(stop_t - start_t);
+                    emit end(path_pair, duration_t.count());
+                    return;
+            });
+            t.detach();
+            return;
         }
         default:
             break;
@@ -701,6 +767,7 @@ void FormInteractiveMap::on_pushButton_clicked()
 
 void FormInteractiveMap::on_pushButton_2_clicked()
 {
+    run = false;
     this->ui->pushButton->setEnabled(true);
     this->ui->pushButton_2->setEnabled(false);
 }
