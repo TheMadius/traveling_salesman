@@ -567,35 +567,31 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                 sec++;
             }
 
-            if (branches.size() == copy_mat.size() - 1) {
-                for(int i = 0; i < copy_mat.size(); i++)
-                    for(int j = 0; j < copy_mat.size(); j++)
-                        if (copy_mat[i][j] >= 0) {
-                            branches.push_back({i, j});
-                            auto tetet = convert_pair(branches);
+            if (branches.size() == copy_mat.size() - 2) {
+                int sum_t = 0;
+                int sum_f = 0;
+                int sum_s = 0;
+                for (int i = 0 ; i < branches.size(); i++) {
+                    sum_t += (i + 1);
+                    sum_f += branches[i].first;
+                    sum_s += branches[i].second;
+                }
+                branches.push_back({branches.front().first, branches.front().first});
+                if (res.empty()) {
+                    res = branches;
+                    pow_min = pow;
+                } else {
+                    if (pow_min > pow) {
+                        res = branches;
+                        pow_min = pow;
+                    }
+                }
 
-                            if (tetet.size() - 1 != copy_mat.size()) {
-                                rash = false;
-                                goto end_for;
-                            }
+                if (!rash)
+                    break;
 
-                            if (res.empty()) {
-                                res = branches;
-                                pow_min = pow;
-                            } else {
-                                if (pow_min > pow) {
-                                    res = branches;
-                                    pow_min = pow;
-                                }
-                            }
+                rash = false;
 
-                            if (!rash)
-                                break;
-
-                            rash = false;
-                            goto end_for;
-                        }
-            end_for:
                 QFile::remove(name);
                 history.erase(std::next(history.begin(), min_intex));
                 continue;
@@ -633,29 +629,32 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                     }
 
                     if (cout_col_null == copy_mat.size() || cout_row_null == copy_mat.size()) {
-                        index_row = j;
-                        index_col = i;
+                        index_row = i;
+                        index_col = j;
                         not_inf = false;
                     }
 
                     if (max_fine < 0) {
                         max_fine = min_row + min_col;
-                        index_row = j;
-                        index_col = i;
+                        index_row = i;
+                        index_col = j;
                     } else {
                         auto new_fine = min_row + min_col;
                         if (max_fine < new_fine) {
                             max_fine = new_fine;
-                            index_row = j;
-                            index_col = i;
+                            index_row = i;
+                            index_col = j;
                         }
                     }
                 }
             }
         }
 
+        if (index_row == -1 || index_col == -1) {
+            continue;
+        }
         //out point with max file
-        copy_mat[index_col][index_row] = -1;
+        copy_mat[index_row][index_col] = -1;
 
         for (int i = 0; i < copy_mat.size(); i++) {
             qreal min_row = -1;
@@ -694,13 +693,12 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
         }
 
         //in point with max file
-        branches.push_back({index_col,index_row});
+        branches.push_back({index_row, index_col});
         for (int i = 0; i < copy_mat.size(); i++) {
+            copy_mat[index_row][i] = -1;
+            copy_mat[i][index_col] = -1;
             copy_mat[i][index_row] = -1;
-            copy_mat[index_col][i] = -1;
         }
-        copy_mat[index_row][index_col] = -1;
-        copy_mat[index_col][index_row] = -1;
 
         for (int i = 0; i < copy_mat.size(); i++) {
             qreal min_row = -1;
