@@ -464,6 +464,33 @@ QString saveMat(std::vector<std::vector<qreal>> &mat, QString path = "mat") {
     return filename;
 }
 
+std::vector<std::pair<int, int>> rar(std::vector<std::pair<int, int>> &pair) {
+    std::vector<std::pair<int, int>> res = pair;
+    int size = res.size();
+    while (true) {
+        for (int i = 0; i < pair.size(); i++) {
+            for (int j = i + 1; j < pair.size(); j++) {
+                if (res[i].second == res[j].first) {
+                    res[j].first = res[i].first;
+                    res.erase(std::next(res.begin(), i));
+                    goto _end;
+                }
+                if (res[j].second == res[i].first) {
+                    res[j].second = res[i].second;
+                    res.erase(std::next(res.begin(), i));
+                    goto _end;
+                }
+            }
+        }
+    _end:
+        if (size != res.size())
+            size = res.size();
+        else
+            break;
+
+    }
+    return res;
+}
 
 std::atomic<bool> run = true;
 std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector<qreal>> &mat) {
@@ -567,31 +594,29 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
                 sec++;
             }
 
-            if (branches.size() == copy_mat.size() - 2) {
-                int sum_t = 0;
-                int sum_f = 0;
-                int sum_s = 0;
-                for (int i = 0 ; i < branches.size(); i++) {
-                    sum_t += (i + 1);
-                    sum_f += branches[i].first;
-                    sum_s += branches[i].second;
-                }
-                branches.push_back({branches.front().first, branches.front().first});
-                if (res.empty()) {
-                    res = branches;
-                    pow_min = pow;
-                } else {
-                    if (pow_min > pow) {
-                        res = branches;
-                        pow_min = pow;
-                    }
-                }
+            if (branches.size() == copy_mat.size() - 1) {
+                for(int i = 0; i < copy_mat.size(); i++)
+                    for(int j = 0; j < copy_mat.size(); j++)
+                        if (copy_mat[i][j] >= 0) {
+                            branches.push_back({i, j});
 
-                if (!rash)
-                    break;
+                            if (res.empty()) {
+                                res = branches;
+                                pow_min = pow;
+                            } else {
+                                if (pow_min > pow) {
+                                    res = branches;
+                                    pow_min = pow;
+                                }
+                            }
 
-                rash = false;
+                            if (!rash)
+                                break;
 
+                            rash = false;
+                            goto end_for;
+                        }
+end_for:
                 QFile::remove(name);
                 history.erase(std::next(history.begin(), min_intex));
                 continue;
@@ -694,11 +719,18 @@ std::vector<std::pair<int, int>> branches_and_boundaries(std::vector<std::vector
 
         //in point with max file
         branches.push_back({index_row, index_col});
+        auto ra = rar(branches);
+        if(branches.size() != copy_mat.size() - 1) {
+            for (auto it: ra) {
+                copy_mat[it.second][it.first] = -1;
+            }
+        }
         for (int i = 0; i < copy_mat.size(); i++) {
             copy_mat[index_row][i] = -1;
             copy_mat[i][index_col] = -1;
-            copy_mat[i][index_row] = -1;
         }
+        copy_mat[index_row][index_col] = -1;
+        copy_mat[index_col][index_row] = -1;
 
         for (int i = 0; i < copy_mat.size(); i++) {
             qreal min_row = -1;
